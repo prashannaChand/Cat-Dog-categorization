@@ -1,0 +1,1 @@
+link to the data set of the images of ctas and dogs : https://www.kaggle.com/datasets/subho117/cat-and-dog-classification-using-cnn
