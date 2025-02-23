@@ -12,7 +12,8 @@ This project classifies images into two categories: **Cat** and **Dog**. It uses
 To install the required libraries, run the following command:
 
 ```bash
-pip install keras numpy matplotlib 
+pip install keras numpy matplotlib
+```
 
 ## Key Steps
 ### Image Loading and Preprocessing:
