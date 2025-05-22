@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cat vs Dog Classifier</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #fff8e1;
+            background-image: url('https://www.transparenttextures.com/patterns/paw-print.png');
+            background-size: 150px;
+            color: #4e342e;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: auto;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #6d4c41;
+            text-shadow: 1px 1px #fff3e0;
+        }
+
+        .hero {
+            background: linear-gradient(to right, #ffe0b2, #ffccbc);
+            padding: 30px 20px;
+            border-bottom: 5px dashed #ffb74d;
+            border-radius: 0 0 50% 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        #preview {
+            background: #fff3e0;
+            border: 2px dashed #ffcc80;
+            border-radius: 20px;
+            padding: 20px;
+            margin: 20px auto;
+            box-shadow: 0 2px 6px rgba(255,152,0,0.2);
+        }
+
+        #preview img {
+            max-width: 300px;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px #ffe0b2;
+        }
+
+        #result {
+            font-size: 1.8em;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #388e3c;
+            text-shadow: 1px 1px #fffde7;
+        }
+
+        input[type="file"] {
+            margin-top: 20px;
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        .loader {
+            border: 6px solid #ffe0b2;
+            border-top: 6px solid #ff7043;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            animation: spin 1s linear infinite;
+            margin: 24px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        #classifyBtn {
+            background: linear-gradient(90deg, #ffb300 60%, #ff7043 100%);
+            color: #fff;
+            border: none;
+            border-radius: 22px;
+            padding: 12px 32px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px #ffe0b2;
+            margin-top: 18px;
+            transition: background 0.3s ease;
+        }
+
+        #classifyBtn:disabled {
+            background: #ffe0b2;
+            color: #bdbdbd;
+            cursor: not-allowed;
+        }
+
+        footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #a1887f;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2em; }
+            #preview img { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>🐾 Cat vs Dog Image Classifier 🐾</h1>
+        <p style="margin: 0; color: #5d4037;">Upload a picture and let the magic of AI decide!</p>
+    </div>
+    <div class="container">
+        <input type="file" id="imageInput" accept="image/*">
+        <div id="preview"></div>
+        <div class="loader" id="loader"></div>
+        <button id="classifyBtn" disabled>Classify Image</button>
+        <div id="result"></div>
+        <footer>Made with ❤️ for pet lovers</footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+    <script>
+        let model;
+        const imageInput = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+        const classifyBtn = document.getElementById('classifyBtn');
+        const result = document.getElementById('result');
+        const loader = document.getElementById('loader');
+        let imgElement;
+
+        async function loadModel() {
+            loader.style.display = 'block';
+            model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json');
+            loader.style.display = 'none';
+        }
+
+        function preprocessImage(img) {
+            let tensor = tf.browser.fromPixels(img)
+                .resizeNearestNeighbor([224, 224])
+                .toFloat()
+                .expandDims();
+            return tensor.div(127.5).sub(1);
+        }
+
+        function mapToCatDog(preds) {
+            const catClasses = [281, 282, 283, 284, 285];
+            const dogClasses = Array.from({length: 120}, (_, i) => 151 + i);
+            let topIdx = preds[0].indexOf(Math.max(...preds[0]));
+            if (catClasses.includes(topIdx)) return "It's a Cat! 🐱";
+            if (dogClasses.includes(topIdx)) return "It's a Dog! 🐶";
+            return "Hmm... Not sure if it's a cat or a dog.";
+        }
+
+        imageInput.addEventListener('change', (e) => {
+            preview.innerHTML = '';
+            result.textContent = '';
+            classifyBtn.disabled = true;
+            if (e.target.files && e.target.files[0]) {
+                imgElement = document.createElement('img');
+                imgElement.src = URL.createObjectURL(e.target.files[0]);
+                imgElement.onload = () => {
+                    preview.innerHTML = '';
+                    preview.appendChild(imgElement);
+                    classifyBtn.disabled = false;
+                };
+                imgElement.style.maxWidth = '100%';
+            }
+        });
+
+        classifyBtn.addEventListener('click', async () => {
+            if (!imgElement || !model) return;
+            loader.style.display = 'block';
+            result.textContent = '';
+            await tf.nextFrame();
+            const tensor = preprocessImage(imgElement);
+            const preds = await model.predict(tensor).array();
+            tensor.dispose();
+            loader.style.display = 'none';
+            result.textContent = mapToCatDog(preds);
+        });
+
+        loadModel();
+    </script>
+</body>
+</html>
